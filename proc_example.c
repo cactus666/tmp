@@ -5,27 +5,49 @@
 #include <linux/string.h>
 #include <linux/uaccess.h>
 
+#define MAX_VALUES 1000
+#define BUFSIZE 1000
+
 MODULE_LICENSE("WTFPL");
 MODULE_AUTHOR("Dmitrii Medvedev");
 MODULE_DESCRIPTION("A simple example Linux module.");
 MODULE_VERSION("0.1");
 
 static struct proc_dir_entry* entry;
+static unsigned int* values;
+static int values_idx;
 
 static ssize_t proc_write(struct file *file, const char __user * ubuf, size_t count, loff_t* ppos) 
 {
 	printk(KERN_DEBUG "Attempt to write proc file");
-	return -1;
+	char buf[BUFSIZE];
+
+	if (*ppos > 0 || count > BUFSIZE)
+		return -EFAULT;
+	if (copy_from_user(buf, ubuf, count))
+		return -EFAULT;
+
+	int num = sscanf(buf, "%c");
+
+	if (values_idx >= MAX_VALUES)
+		return -EFAULT; 
+
+	values[values_idx++] = num;
+	int c = strlen(buf);
+	*ppos = c;
+	return c;
 }
 
 static ssize_t proc_read(struct file *file, char __user * ubuf, size_t count, loff_t* ppos) 
 {
-	size_t len = strlen(THIS_MODULE->name);
+	char str[80];
+	int len = sizeof(str);
+	sprintf(str, "Hello user: %d", values_idx);
 	if (*ppos > 0 || count < len)
 	{
 		return 0;
 	}
-	if (copy_to_user(ubuf, THIS_MODULE->name, len) != 0)
+	if (copy_to_user(ubuf, str, len) != 0)
 	{
 		return -EFAULT;
 	}
@@ -42,7 +64,10 @@ static struct file_operations fops = {
 
 static int __init proc_example_init(void)
 {
-	entry = proc_create("proc_example", 0444, NULL, &fops);
+	entry = proc_create("proc_example", 0666, NULL, &fops);
+	values = kzalloc(MAX_VALUES * sizeof(unsigned int), GFP_KERNEL);
+	values_idx = 0;
+
 	printk(KERN_INFO "%s: proc file is created\n", THIS_MODULE->name);
 	return 0;
 }
