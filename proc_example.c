@@ -14,7 +14,7 @@ MODULE_DESCRIPTION("A simple example Linux module.");
 MODULE_VERSION("0.1");
 
 static struct proc_dir_entry* entry;
-static unsigned int* values;
+static unsigned int values[MAX_VALUES];
 static int values_idx;
 
 static ssize_t proc_write(struct file *file, const char __user * ubuf, size_t count, loff_t* ppos) 
@@ -65,7 +65,6 @@ static struct file_operations fops = {
 static int __init proc_example_init(void)
 {
 	entry = proc_create("proc_example", 0666, NULL, &fops);
-	values = kzalloc(MAX_VALUES * sizeof(unsigned int), GFP_KERNEL);
 	values_idx = 0;
 
 	printk(KERN_INFO "%s: proc file is created\n", THIS_MODULE->name);
